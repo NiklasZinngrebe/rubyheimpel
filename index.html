@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Curvy Split Scroll – Live Controls</title>
+
+  <style>
+    :root{
+      --left:  #fdf855;
+      --right: #6a2631;
+      --pages: 6;
+    }
+
+    *{ box-sizing:border-box; }
+    html, body{ height:100%; }
+
+    body{
+      margin:0;
+      overflow-x:hidden;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      height: calc(var(--pages) * 100vh);
+    }
+
+    /* fixed viewport */
+    .bg-fixed{
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      z-index: 0;
+    }
+
+    .bg-inner{
+      position: absolute;
+      inset: 0;
+      height: calc(var(--pages) * 100vh);
+      will-change: transform;
+      transform: translate3d(0,0,0);
+    }
+
+    svg{
+      width:100%;
+      height:100%;
+      display:block;
+    }
+
+    /* ----- controls ----- */
+    .controls{
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 10;
+      background: rgba(255,255,255,.85);
+      border-radius: 12px;
+      padding: 14px 16px;
+      width: 260px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      font-size: 13px;
+    }
+
+    .controls label{
+      display:block;
+      margin-bottom: 10px;
+      color:#000;
+    }
+
+    .controls span{
+      float:right;
+      font-variant-numeric: tabular-nums;
+      opacity:.7;
+    }
+
+    .controls input[type="range"]{
+      width:100%;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-fixed">
+    <div class="bg-inner" id="bgInner">
+      <svg viewBox="0 0 1000 6000" preserveAspectRatio="none">
+        <path id="leftFill"  fill="#fdf855"></path>
+        <path id="rightFill" fill="#6a2631"></path>
+        <path id="divider"
+              fill="none"
+              stroke="#000"
+              stroke-width="3"
+              vector-effect="non-scaling-stroke"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <label>
+      Curviness
+      <span id="ampVal"></span>
+      <input id="amp" type="range" min="60" max="420" step="1" value="220">
+    </label>
+
+    <label>
+      Detail
+      <span id="segVal"></span>
+      <input id="seg" type="range" min="20" max="200" step="1" value="120">
+    </label>
+
+    <label>
+      Frequency
+      <span id="freqVal"></span>
+      <input id="freq" type="range" min="1" max="8" step="0.1" value="3.5">
+    </label>
+  </div>
+
+  <script>
+    // -------- helpers --------
+    function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+    function catmullRomToBezier(points){
+      if (points.length < 2) return "";
+      let d = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+      for (let i = 0; i < points.length - 1; i++){
+        const p0 = points[i - 1] || points[i];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[i + 2] || p2;
+
+        const c1x = p1.x + (p2.x - p0.x) / 6;
+        const c1y = p1.y + (p2.y - p0.y) / 6;
+        const c2x = p2.x - (p3.x - p1.x) / 6;
+        const c2y = p2.y - (p3.y - p1.y) / 6;
+
+        d += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+      }
+      return d;
+    }
+
+    // -------- constants --------
+    const W = 1000;
+    const H = 6000;
+    const centerX = 500;
+    const minX = 120, maxX = 880;
+
+    const s1 = Math.random()*1000;
+    const s2 = Math.random()*1000;
+    const s3 = Math.random()*1000;
+
+    // -------- live parameters --------
+    let amplitude = 220;
+    let segments  = 120;
+    let freq      = 3.5;
+
+    // -------- build curve --------
+    function rebuild(){
+      const pts = [];
+      for (let i = 0; i <= segments; i++){
+        const u = i / segments;
+        const y = u * H;
+
+        const w1 = Math.sin((u * freq + s1) * Math.PI * 2);
+        const w2 = Math.sin((u * (freq*2.2) + s2) * Math.PI * 2);
+        const w3 = Math.sin((u * (freq*4.0) + s3) * Math.PI * 2);
+
+        const offset = (w1*0.6 + w2*0.27 + w3*0.13) * amplitude;
+        const drift  = Math.sin((u * 1.1 + s2) * Math.PI * 2) * 40 * (u - 0.5);
+
+        const x = clamp(centerX + offset + drift, minX, maxX);
+        pts.push({ x, y });
+      }
+
+      const curveD = catmullRomToBezier(pts);
+      const rightD = `${curveD} L ${W} ${H} L ${W} 0 Z`;
+
+      const x0 = pts[0].x.toFixed(2);
+      const tail = curveD.replace(/^M\s+[0-9.]+\s+[0-9.]+/, "");
+      const leftD = `M 0 0 L ${x0} 0 ${tail} L 0 ${H} Z`;
+
+      leftFill.setAttribute("d", leftD);
+      rightFill.setAttribute("d", rightD);
+      divider.setAttribute("d", curveD);
+    }
+
+    // -------- scroll sync --------
+    const bgInner = document.getElementById("bgInner");
+    let targetY = 0, currentY = 0;
+    const ease = 0.22;
+
+    function updateTarget(){
+      const maxScroll = Math.max(1, document.body.scrollHeight - innerHeight);
+      targetY = -(scrollY / maxScroll) * (bgInner.offsetHeight - innerHeight);
+    }
+
+    function animate(){
+      currentY += (targetY - currentY) * ease;
+      bgInner.style.transform = `translate3d(0, ${currentY}px, 0)`;
+      requestAnimationFrame(animate);
+    }
+
+    addEventListener("scroll", updateTarget, { passive:true });
+    addEventListener("resize", updateTarget);
+
+    // -------- sliders --------
+    const ampEl  = document.getElementById("amp");
+    const segEl  = document.getElementById("seg");
+    const freqEl = document.getElementById("freq");
+
+    const ampVal  = document.getElementById("ampVal");
+    const segVal  = document.getElementById("segVal");
+    const freqVal = document.getElementById("freqVal");
+
+    function syncLabels(){
+      ampVal.textContent  = amplitude;
+      segVal.textContent  = segments;
+      freqVal.textContent = freq;
+    }
+
+    ampEl.oninput = () => { amplitude = +ampEl.value; rebuild(); syncLabels(); };
+    segEl.oninput = () => { segments  = +segEl.value; rebuild(); syncLabels(); };
+    freqEl.oninput= () => { freq      = +freqEl.value; rebuild(); syncLabels(); };
+
+    // init
+    syncLabels();
+    rebuild();
+    updateTarget();
+    animate();
+  </script>
+</body>
+</html>
