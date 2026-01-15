@@ -22,9 +22,7 @@
       height: calc(var(--pages) * 100vh);
     }
 
-    /* fixed headline */
-    /* ----- floating headline ----- */
-    /* ----- floating text headline ----- */
+    /* floating text headline */
     header{
       position: fixed;
       top: 20px;
@@ -121,7 +119,6 @@
 
   <script>
     // ----------------- Pastel color pairs (matching) -----------------
-    // 10 suggested pastel pairs. Edit/add freely.
     const PASTEL_PAIRS = [
       ["#FFD6E8", "#CDEBFF"], // pink + baby blue
       ["#FFF2B2", "#CDECCF"], // butter + mint
@@ -215,37 +212,50 @@
     leftFill.setAttribute("fill", "var(--left)");
     rightFill.setAttribute("fill", "var(--right)");
 
-    // ----------------- Dummies (rounded rectangles) -----------------
+    // ----------------- Dummies (NO overlap, 10–100px vertical gaps, random X) -----------------
     const placeholderLayer = document.getElementById("placeholders");
-    const dummyCount = 14;
-    const worldVH = 600;
 
-    function makeDummy(){
+    const pages = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pages")) || 6;
+    const worldHeightPx = pages * window.innerHeight;
+
+    const dummyCount = 14;
+    const gapMin = 10;   // px
+    const gapMax = 100;  // px
+
+    // Size ranges in px (tweak as you like)
+    const wMin = 220, wMax = 520;
+    const hMin = 140, hMax = 320;
+
+    // Start a bit below the header
+    let yCursor = 110;
+
+    function pickX(widthPx){
+      const padding = 24;
+      const maxLeft = Math.max(padding, window.innerWidth - widthPx - padding);
+      return rand(padding, maxLeft);
+    }
+
+    for (let i = 0; i < dummyCount; i++){
+      const w = rand(wMin, wMax);
+      const h = rand(hMin, hMax);
+
+      if (yCursor + h > worldHeightPx - 40) break;
+
       const el = document.createElement("div");
       el.className = "dummy";
       el.setAttribute("data-kind", Math.random() < 0.55 ? "Image" : "Video");
 
-      // Spread down the page
-      const yVH = rand(12, worldVH - 25);
+      const x = pickX(w);
 
-      // Sizes (responsive)
-      const wVW = rand(18, 34);
-      const hVH = rand(14, 26);
+      el.style.left = `${x}px`;
+      el.style.top = `${yCursor}px`;
+      el.style.width = `${w}px`;
+      el.style.height = `${h}px`;
 
-      // Random X, biased into left/right areas
-      const side = Math.random() < 0.5 ? "left" : "right";
-      const xVW = side === "left" ? rand(6, 38) : rand(56, 82);
+      placeholderLayer.appendChild(el);
 
-      el.style.left = xVW + "vw";
-      el.style.top = yVH + "vh";
-      el.style.width = wVW + "vw";
-      el.style.height = hVH + "vh";
-      el.style.transform = `rotate(${rand(-1.0, 1.0)}deg)`;
-      return el;
-    }
-
-    for (let i = 0; i < dummyCount; i++){
-      placeholderLayer.appendChild(makeDummy());
+      // Move cursor down: guarantees no overlap
+      yCursor += h + rand(gapMin, gapMax);
     }
 
     // ----------------- Smooth scroll syncing -----------------
@@ -257,8 +267,8 @@
     const ease = 0.22;
 
     function recalc(){
-      const pages = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pages")) || 6;
-      const worldHeight = pages * innerHeight;
+      const pagesNow = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pages")) || 6;
+      const worldHeight = pagesNow * innerHeight;
       travel = Math.max(0, worldHeight - innerHeight);
       updateTarget();
     }
@@ -283,3 +293,4 @@
   </script>
 </body>
 </html>
+
