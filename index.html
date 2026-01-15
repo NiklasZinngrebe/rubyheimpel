@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Curvy Split Scroll – Live Controls</title>
+  <title>Ruby's Website</title>
 
   <style>
     :root{
-      --left:  #fdf855;
-      --right: #6a2631;
-      --pages: 6;
+      --left:  #fdf855; /* will be overwritten by JS */
+      --right: #6a2631; /* will be overwritten by JS */
+      --pages: 6;       /* 6 screens */
     }
 
     *{ box-sizing:border-box; }
@@ -22,7 +22,27 @@
       height: calc(var(--pages) * 100vh);
     }
 
-    /* fixed viewport */
+    /* fixed headline */
+    /* ----- floating headline ----- */
+    /* ----- floating text headline ----- */
+    header{
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+
+      font-weight: 800;
+      font-size: 22px;
+      letter-spacing: .3px;
+
+      color: rgba(0,0,0,.75);
+      text-align: center;
+
+      pointer-events: none; /* purely decorative */
+    }
+
+    /* fixed viewport window */
     .bg-fixed{
       position: fixed;
       inset: 0;
@@ -30,90 +50,101 @@
       z-index: 0;
     }
 
-    .bg-inner{
+    /* tall world that moves */
+    .world{
       position: absolute;
-      inset: 0;
+      top: 0; left: 0;
+      width: 100%;
       height: calc(var(--pages) * 100vh);
       will-change: transform;
       transform: translate3d(0,0,0);
     }
 
+    /* background SVG */
     svg{
       width:100%;
       height:100%;
       display:block;
+      position:absolute;
+      inset:0;
+      z-index: 0;
     }
 
-    /* ----- controls ----- */
-    .controls{
-      position: fixed;
-      right: 16px;
-      bottom: 16px;
-      z-index: 10;
-      background: rgba(255,255,255,.85);
-      border-radius: 12px;
-      padding: 14px 16px;
-      width: 260px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.25);
-      font-size: 13px;
+    /* placeholder layer */
+    .placeholders{
+      position:absolute;
+      inset:0;
+      z-index: 2;
+      pointer-events: none;
+      padding-top: 76px; /* keep away from header */
     }
 
-    .controls label{
-      display:block;
-      margin-bottom: 10px;
-      color:#000;
+    .dummy{
+      position:absolute;
+      border-radius: 26px;
+      background: rgba(255,255,255,0.22);
+      border: 1px solid rgba(0,0,0,0.08);
+      backdrop-filter: blur(2px);
+      box-shadow: 0 10px 26px rgba(0,0,0,0.10);
     }
 
-    .controls span{
-      float:right;
-      font-variant-numeric: tabular-nums;
-      opacity:.7;
-    }
-
-    .controls input[type="range"]{
-      width:100%;
+    .dummy::after{
+      content: attr(data-kind);
+      position:absolute;
+      left: 14px;
+      bottom: 12px;
+      font-size: 12px;
+      letter-spacing: .2px;
+      opacity: .7;
+      color: rgba(0,0,0,.55);
+      mix-blend-mode: multiply;
     }
   </style>
 </head>
 
 <body>
-  <div class="bg-fixed">
-    <div class="bg-inner" id="bgInner">
+  <header>Ruby's Website</header>
+
+  <div class="bg-fixed" aria-hidden="true">
+    <div class="world" id="world">
+      <!-- Background -->
       <svg viewBox="0 0 1000 6000" preserveAspectRatio="none">
-        <path id="leftFill"  fill="#fdf855"></path>
-        <path id="rightFill" fill="#6a2631"></path>
-        <path id="divider"
-              fill="none"
-              stroke="#000"
-              stroke-width="3"
-              vector-effect="non-scaling-stroke"/>
+        <path id="leftFill"  d=""></path>
+        <path id="rightFill" d=""></path>
+        <!-- no divider stroke -->
       </svg>
+
+      <!-- Placeholder layer -->
+      <div class="placeholders" id="placeholders"></div>
     </div>
   </div>
 
-  <!-- Controls -->
-  <div class="controls">
-    <label>
-      Curviness
-      <span id="ampVal"></span>
-      <input id="amp" type="range" min="60" max="420" step="1" value="220">
-    </label>
-
-    <label>
-      Detail
-      <span id="segVal"></span>
-      <input id="seg" type="range" min="20" max="200" step="1" value="120">
-    </label>
-
-    <label>
-      Frequency
-      <span id="freqVal"></span>
-      <input id="freq" type="range" min="1" max="8" step="0.1" value="3.5">
-    </label>
-  </div>
-
   <script>
-    // -------- helpers --------
+    // ----------------- Pastel color pairs (matching) -----------------
+    // 10 suggested pastel pairs. Edit/add freely.
+    const PASTEL_PAIRS = [
+      ["#FFD6E8", "#CDEBFF"], // pink + baby blue
+      ["#FFF2B2", "#CDECCF"], // butter + mint
+      ["#E7D7FF", "#FFE3B8"], // lavender + peach
+      ["#CFF7F0", "#FFD1C7"], // aqua + blush
+      ["#D7F2FF", "#EBD9FF"], // ice blue + lilac
+      ["#FFE9C7", "#CFE6FF"], // soft apricot + sky
+      ["#DFF5D8", "#FFD9E1"], // pastel green + rose
+      ["#FFF0D9", "#D9F0FF"], // cream + light blue
+      ["#E6FFF2", "#FFE6F2"], // mint milk + pink milk
+      ["#F5E6FF", "#E6FFF9"], // soft purple + seafoam
+    ];
+
+    function pickRandomPair(){
+      return PASTEL_PAIRS[Math.floor(Math.random() * PASTEL_PAIRS.length)];
+    }
+
+    const [LEFT, RIGHT] = pickRandomPair();
+    document.documentElement.style.setProperty("--left", LEFT);
+    document.documentElement.style.setProperty("--right", RIGHT);
+
+    // ----------------- Helpers -----------------
+    function rand(min, max){ return Math.random() * (max - min) + min; }
     function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 
     function catmullRomToBezier(points){
@@ -135,94 +166,120 @@
       return d;
     }
 
-    // -------- constants --------
+    // ----------------- Build long curve (used to split fills) -----------------
     const W = 1000;
     const H = 6000;
     const centerX = 500;
-    const minX = 120, maxX = 880;
 
-    const s1 = Math.random()*1000;
-    const s2 = Math.random()*1000;
-    const s3 = Math.random()*1000;
+    const segments = 90;
+    const amplitude = rand(160, 260); // slightly curvier by default
+    const minX = 150, maxX = 850;
 
-    // -------- live parameters --------
-    let amplitude = 220;
-    let segments  = 120;
-    let freq      = 3.5;
+    const s1 = Math.random() * 1000;
+    const s2 = Math.random() * 1000;
+    const s3 = Math.random() * 1000;
 
-    // -------- build curve --------
-    function rebuild(){
+    function buildCurve(){
       const pts = [];
       for (let i = 0; i <= segments; i++){
         const u = i / segments;
         const y = u * H;
 
-        const w1 = Math.sin((u * freq + s1) * Math.PI * 2);
-        const w2 = Math.sin((u * (freq*2.2) + s2) * Math.PI * 2);
-        const w3 = Math.sin((u * (freq*4.0) + s3) * Math.PI * 2);
+        const w1 = Math.sin((u * 2.2 + s1) * Math.PI * 2);
+        const w2 = Math.sin((u * 5.4 + s2) * Math.PI * 2);
+        const w3 = Math.sin((u * 9.5 + s3) * Math.PI * 2);
 
-        const offset = (w1*0.6 + w2*0.27 + w3*0.13) * amplitude;
-        const drift  = Math.sin((u * 1.1 + s2) * Math.PI * 2) * 40 * (u - 0.5);
+        const offset = (w1*0.60 + w2*0.27 + w3*0.13) * amplitude;
+        const drift  = Math.sin((u * 1.1 + s2) * Math.PI * 2) * 45 * (u - 0.5);
 
         const x = clamp(centerX + offset + drift, minX, maxX);
         pts.push({ x, y });
       }
-
-      const curveD = catmullRomToBezier(pts);
-      const rightD = `${curveD} L ${W} ${H} L ${W} 0 Z`;
-
-      const x0 = pts[0].x.toFixed(2);
-      const tail = curveD.replace(/^M\s+[0-9.]+\s+[0-9.]+/, "");
-      const leftD = `M 0 0 L ${x0} 0 ${tail} L 0 ${H} Z`;
-
-      leftFill.setAttribute("d", leftD);
-      rightFill.setAttribute("d", rightD);
-      divider.setAttribute("d", curveD);
+      return { pts, d: catmullRomToBezier(pts) };
     }
 
-    // -------- scroll sync --------
-    const bgInner = document.getElementById("bgInner");
-    let targetY = 0, currentY = 0;
+    const { pts, d: curveD } = buildCurve();
+
+    // Right side: curve + right edge
+    const rightD = `${curveD} L ${W} ${H} L ${W} 0 Z`;
+
+    // Left side: left edge + curve
+    const x0 = pts[0].x.toFixed(2);
+    const tail = curveD.replace(/^M\s+[0-9.]+\s+[0-9.]+/, "");
+    const leftD = `M 0 0 L ${x0} 0 ${tail} L 0 ${H} Z`;
+
+    const leftFill = document.getElementById("leftFill");
+    const rightFill = document.getElementById("rightFill");
+    leftFill.setAttribute("d", leftD);
+    rightFill.setAttribute("d", rightD);
+    leftFill.setAttribute("fill", "var(--left)");
+    rightFill.setAttribute("fill", "var(--right)");
+
+    // ----------------- Dummies (rounded rectangles) -----------------
+    const placeholderLayer = document.getElementById("placeholders");
+    const dummyCount = 14;
+    const worldVH = 600;
+
+    function makeDummy(){
+      const el = document.createElement("div");
+      el.className = "dummy";
+      el.setAttribute("data-kind", Math.random() < 0.55 ? "Image" : "Video");
+
+      // Spread down the page
+      const yVH = rand(12, worldVH - 25);
+
+      // Sizes (responsive)
+      const wVW = rand(18, 34);
+      const hVH = rand(14, 26);
+
+      // Random X, biased into left/right areas
+      const side = Math.random() < 0.5 ? "left" : "right";
+      const xVW = side === "left" ? rand(6, 38) : rand(56, 82);
+
+      el.style.left = xVW + "vw";
+      el.style.top = yVH + "vh";
+      el.style.width = wVW + "vw";
+      el.style.height = hVH + "vh";
+      el.style.transform = `rotate(${rand(-1.0, 1.0)}deg)`;
+      return el;
+    }
+
+    for (let i = 0; i < dummyCount; i++){
+      placeholderLayer.appendChild(makeDummy());
+    }
+
+    // ----------------- Smooth scroll syncing -----------------
+    const world = document.getElementById("world");
+
+    let travel = 0;
+    let targetY = 0;
+    let currentY = 0;
     const ease = 0.22;
+
+    function recalc(){
+      const pages = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pages")) || 6;
+      const worldHeight = pages * innerHeight;
+      travel = Math.max(0, worldHeight - innerHeight);
+      updateTarget();
+    }
 
     function updateTarget(){
       const maxScroll = Math.max(1, document.body.scrollHeight - innerHeight);
-      targetY = -(scrollY / maxScroll) * (bgInner.offsetHeight - innerHeight);
-    }
-
-    function animate(){
-      currentY += (targetY - currentY) * ease;
-      bgInner.style.transform = `translate3d(0, ${currentY}px, 0)`;
-      requestAnimationFrame(animate);
+      const progress = (scrollY || 0) / maxScroll;
+      targetY = -progress * travel;
     }
 
     addEventListener("scroll", updateTarget, { passive:true });
-    addEventListener("resize", updateTarget);
+    addEventListener("resize", recalc);
 
-    // -------- sliders --------
-    const ampEl  = document.getElementById("amp");
-    const segEl  = document.getElementById("seg");
-    const freqEl = document.getElementById("freq");
-
-    const ampVal  = document.getElementById("ampVal");
-    const segVal  = document.getElementById("segVal");
-    const freqVal = document.getElementById("freqVal");
-
-    function syncLabels(){
-      ampVal.textContent  = amplitude;
-      segVal.textContent  = segments;
-      freqVal.textContent = freq;
+    function animate(){
+      currentY += (targetY - currentY) * ease;
+      world.style.transform = `translate3d(0, ${currentY}px, 0)`;
+      requestAnimationFrame(animate);
     }
 
-    ampEl.oninput = () => { amplitude = +ampEl.value; rebuild(); syncLabels(); };
-    segEl.oninput = () => { segments  = +segEl.value; rebuild(); syncLabels(); };
-    freqEl.oninput= () => { freq      = +freqEl.value; rebuild(); syncLabels(); };
-
-    // init
-    syncLabels();
-    rebuild();
-    updateTarget();
-    animate();
+    recalc();
+    requestAnimationFrame(animate);
   </script>
 </body>
 </html>
